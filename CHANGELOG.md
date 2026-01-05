@@ -1,3 +1,6 @@
+## 0.16.3-s
+* [FORK] Forked the repo and enabled github automatic deployment via CI/CD pipeline
+
 ## 0.16.3
 * Added support for configuring handled and unhandled exceptions in the Breakpoints window.
 

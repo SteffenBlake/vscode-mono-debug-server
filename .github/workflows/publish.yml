@@ -1,0 +1,63 @@
+name: Build and Publish Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid:
+          - linux-x64
+          - linux-arm64
+          - win-x64
+          - win-arm64
+          - osx-x64
+          - osx-arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish executable
+        shell: bash
+        run: |
+          dotnet publish ./src/VsCodeMonoDebugServer.Console/VsCodeMonoDebugServer.Console.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=false \
+            -p:DebugType=None \
+            -p:Version=${{ github.ref_name }} \
+            -o ./publish/${{ matrix.rid }}
+
+          # Pack each RID build into a tar.gz with project name + tag + rid
+          cd publish
+          tar -czf "vscode-mono-debug-server-${{ github.ref_name }}-${{ matrix.rid }}.tar.gz" ${{ matrix.rid }}
+
+      - name: Ensure GitHub Release Exists
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Artifact
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./publish/vscode-mono-debug-server-${{ github.ref_name }}-${{ matrix.rid }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
