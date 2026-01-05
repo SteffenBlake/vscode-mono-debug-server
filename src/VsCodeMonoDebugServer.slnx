@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/VsCodeMonoDebugServer.Console/">
+    <Project Path="VsCodeMonoDebugServer.Console/mono-debug.csproj" />
+  </Folder>
+  <Project Path="../external/debugger-libs/Mono.Debugger.Soft/Mono.Debugger.Soft.csproj" />
+  <Project Path="../external/debugger-libs/Mono.Debugging.Soft/Mono.Debugging.Soft.csproj" />
+  <Project Path="../external/debugger-libs/Mono.Debugging/Mono.Debugging.csproj" />
+</Solution>
