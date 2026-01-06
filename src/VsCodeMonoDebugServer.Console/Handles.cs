@@ -6,43 +6,48 @@
  *--------------------------------------------------------------------------------------------*/
 using System.Collections.Generic;
 
-namespace VSCodeDebug;
-
-public class Handles<T>
+namespace VsCodeMonoDebugServer.Console
 {
-	private const int START_HANDLE = 1000;
-
-	private int _nextHandle = START_HANDLE;
-	private readonly Dictionary<int, T> _handleMap = [];
-
-	public void Reset()
+	public class Handles<T>
 	{
-		_nextHandle = START_HANDLE;
-		_handleMap.Clear();
-	}
+		private const int START_HANDLE = 1000;
 
-	public int Create(T value)
-	{
-		var handle = _nextHandle++;
-		_handleMap[handle] = value;
-		return handle;
-	}
+		private int _nextHandle;
+		private Dictionary<int, T> _handleMap;
 
-	public bool TryGet(int handle, out T value)
-	{
-		if (_handleMap.TryGetValue(handle, out value)) {
-			return true;
+		public Handles() {
+			_nextHandle = START_HANDLE;
+			_handleMap = new Dictionary<int, T>();
 		}
-		return false;
-	}
 
-	public T Get(int handle, T dflt)
-	{
-        if (_handleMap.TryGetValue(handle, out T value))
-        {
-            return value;
-        }
+		public void Reset()
+		{
+			_nextHandle = START_HANDLE;
+			_handleMap.Clear();
+		}
 
-        return dflt;
+		public int Create(T value)
+		{
+			var handle = _nextHandle++;
+			_handleMap[handle] = value;
+			return handle;
+		}
+
+		public bool TryGet(int handle, out T value)
+		{
+			if (_handleMap.TryGetValue(handle, out value)) {
+				return true;
+			}
+			return false;
+		}
+
+		public T Get(int handle, T dflt)
+		{
+			T value;
+			if (_handleMap.TryGetValue(handle, out value)) {
+				return value;
+			}
+			return dflt;
+		}
 	}
 }
