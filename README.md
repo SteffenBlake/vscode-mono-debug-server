@@ -1,66 +1,163 @@
-# VS Code Mono Debug
+# vscode-mono-debug-server
 
-A simple VS Code debugger extension for the Mono VM. Its implementation was inspired by the [SDB](https://github.com/mono/sdb) command line debugger.
+Standalone Mono Debug Adapter Protocol (DAP) server, forked from [microsoft/vscode-mono-debug](https://github.com/microsoft/vscode-mono-debug)
 
-![Mono Debug](images/mono-debug.png)
+This project removes the VS Code extension layer and turns the debugger into a standalone .NET 10 CLI suitable for any DAP-capable editor (e.g. Neovim).
 
-## Installing Mono
+Licensed under MIT, same as upstream.
 
-You can either download the latest Mono version for Linux, macOS, or Windows at the [Mono project website](https://www.mono-project.com/download/) or you can use your package manager.
+## Origin
 
-* On OS X: `brew install mono`
-* On Ubuntu, Debian, Raspbian: `sudo apt-get install mono-complete`
-* On CentOS: `yum install mono-complete`
-* On Fedora: `dnf install mono-complete`
+* Fork of microsoft/vscode-mono-debug
+* Original license: MIT
+* Changes:
+    * Removed VS Code extension packaging
+    * Refactored into a standalone DAP server
+    * Distributed as a .NET 10 CLI
+    * Added Nix support (default.nix, flake-compatible)
 
-## Enable Mono debugging
+## Installation
+### From releases (recommended)
 
-To enable debugging of Mono based C# (and F#) programs, you have to pass the `-debug` option to the compiler:
+1. Go to the releases page: https://github.com/SteffenBlake/vscode-mono-debug/releases
+2. Download the latest tarball for your platform
+3. Extract it
+4. Ensure vscode-mono-debug-server is on your PATH
 
-```bash
-csc -debug Program.cs
+Example:
+
+```
+tar -xzf vscode-mono-debug-server-<platform>.tar.gz
+export PATH="$PWD/vscode-mono-debug-server:$PATH"
 ```
 
-If you want to attach the VS Code debugger to a Mono program, pass these additional arguments to the Mono runtime:
+### Build from source
 
-```bash
-mono --debug --debugger-agent=transport=dt_socket,server=y,address=127.0.0.1:55555 Program.exe
+**Requirements:** .NET SDK 10.0+
+
+```
+git clone https://github.com/SteffenBlake/vscode-mono-debug
+cd vscode-mono-debug/src/VsCodeMonoDebugServer.Console
+dotnet run -- --server
 ```
 
-The corresponding attach `launch.json` configuration looks like this:
+## Nix Installation
 
-```json
-{
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Attach to Mono",
-            "request": "attach",
-            "type": "mono",
-            "address": "localhost",
-            "port": 55555
-        }
-    ]
+### Option A: Flake
+
+Use this flake snippet as an example:
+
+```
+inputs = {
+  nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
+  vscode-mono-debug-server.url = "github:SteffenBlake/vscode-mono-debug";
+};
+
+outputs = { self, nixpkgs, vscode-mono-debug-server }: 
+let
+  pkgs = nixpkgs.legacyPackages.x86_64-linux;
+in {
+  devShells.x86_64-linux = pkgs.mkShell {
+    buildInputs = [ vscode-mono-debug-server ];
+  };
 }
 ```
 
-## Building the mono-debug extension
+To build or enter the devShell with submodules included:
 
-[![build status](https://github.com/microsoft/vscode-mono-debug/workflows/Extension%20CI/badge.svg)](https://github.com/microsoft/vscode-mono-debug/actions)
-
-Building and using VS Code mono-debug requires a basic POSIX-like environment, a Bash-like
-shell, and an installed Mono framework.
-
-First, clone the mono-debug project:
-
-```bash
-$ git clone --recursive https://github.com/microsoft/vscode-mono-debug
+```
+nix build .?submodules=1#
+# or
+nix develop .?submodules=1#
 ```
 
-To build the extension vsix, run:
+---
 
-```bash
-$ cd vscode-mono-debug
-$ npm install
-$ make
+### Option B: Direct `builtins.fetchGit`
+
+Fetch the repository directly:
+
 ```
+let
+  monoDebug = builtins.fetchGit {
+    url = "https://github.com/SteffenBlake/vscode-mono-debug";
+    rev = "<latest-commit-hash>"; # from main
+    submodules = true;
+  };
+in
+  import monoDebug { }
+```
+
+## Neovim (nvim-dap) configuration
+### Adapter setup
+```
+local dap = require("dap")
+
+dap.adapters.mono = {
+  type = "server",
+  host = "127.0.0.1",
+  port = 4711,
+  executable = {
+    command = "vscode-mono-debug-server",
+    args = { "--server" },
+  },
+}
+
+dap.configurations.cs = {
+  {
+    type = "mono",
+    name = "Attach (Mono)",
+    request = "attach",
+    address = "127.0.0.1",
+    port = 10000,
+  },
+}
+```
+
+## Debugging workflow (Android / Mono)
+
+1. Start the server:
+
+```
+vscode-mono-debug-server --server
+```
+
+2. Connect to the device/emulator:
+
+```
+adb connect <device>
+```
+
+3. Build and deploy with debugger enabled:
+
+```
+dotnet build \
+  -p:Configuration=Debug \
+  "/t:Install;_Run" \
+  /p:AndroidAttachDebugger=true \
+  /p:AndroidSdbHostPort=10000
+```
+
+4. Open a .cs file in Neovim
+
+5. Run:
+
+```
+:lua require("dap").continue()
+```
+
+6. Select `Attach (Mono)` when prompted
+
+## CLI Options
+
+```
+vscode-mono-debug-server [options]
+```
+
+| Option | Description |
+|------|------------|
+| `--server` | Run in DAP server mode (listens on port 4711). |
+| `--server=<port>` | Run in DAP server mode on the specified port. |
+| `--trace` | Trace incoming DAP requests. |
+| `--trace=response` | Trace incoming requests and outgoing responses. |
+| `--log-file=<path>` | Write log output to the specified file. |
